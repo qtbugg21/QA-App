@@ -29,10 +29,13 @@ def main_app():
     st.title("X-Ray QA Scoring Tool")
 
     # Upload DICOM file
-    dicom_file = st.file_uploader("Upload DICOM file", type=["dcm"])
+    dicom_file = st.file_uploader("Upload Image or DICOM file", type=["dcm", "jpg", "jpeg", "png"])
     if dicom_file:
+    if dicom_file.name.lower().endswith(".dcm"):
         body_part, view = detect_body_part(dicom_file)
         st.success(f"Detected Body Part: {body_part}, View: {view}")
+    else:
+        st.warning("Image uploaded (not DICOM). Please select Body Part and View manually below.")
     else:
         body_part = st.selectbox("Body Part", ["Chest", "Abdomen", "Extremity", "Spine"])
         view = st.selectbox("View", ["AP", "PA", "Lateral", "Oblique"])
@@ -98,4 +101,5 @@ if "logged_in" not in st.session_state:
 if st.session_state["logged_in"]:
     main_app()
 else:
+
     login()
