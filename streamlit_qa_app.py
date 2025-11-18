@@ -1,6 +1,4 @@
-import streamlit as st
-import pandas as pd
-import os
+import streamlit as stimport stream os
 import pydicom
 
 # ---------------- LOGIN ----------------
@@ -28,15 +26,21 @@ def detect_body_part(dicom_file):
 def main_app():
     st.title("X-Ray QA Scoring Tool")
 
-    # Upload DICOM file
+    # Upload DICOM or image file
     dicom_file = st.file_uploader("Upload Image or DICOM file", type=["dcm", "jpg", "jpeg", "png"])
+
     if dicom_file:
-    if dicom_file.name.lower().endswith(".dcm"):
-        body_part, view = detect_body_part(dicom_file)
-        st.success(f"Detected Body Part: {body_part}, View: {view}")
+        if dicom_file.name.lower().endswith(".dcm"):
+            # Process DICOM file
+            body_part, view = detect_body_part(dicom_file)
+            st.success(f"Detected Body Part: {body_part}, View: {view}")
+        else:
+            # Handle non-DICOM image gracefully
+            st.warning("Image uploaded (not DICOM). Please select Body Part and View manually below.")
+            body_part = st.selectbox("Body Part", ["Chest", "Abdomen", "Extremity", "Spine"])
+            view = st.selectbox("View", ["AP", "PA", "Lateral", "Oblique"])
     else:
-        st.warning("Image uploaded (not DICOM). Please select Body Part and View manually below.")
-    else:
+        # No file uploaded yet
         body_part = st.selectbox("Body Part", ["Chest", "Abdomen", "Extremity", "Spine"])
         view = st.selectbox("View", ["AP", "PA", "Lateral", "Oblique"])
 
@@ -101,5 +105,5 @@ if "logged_in" not in st.session_state:
 if st.session_state["logged_in"]:
     main_app()
 else:
-
     login()
+import pandas as pd
