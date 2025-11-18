@@ -3,7 +3,14 @@ import pandas as pd
 import os
 import pydicom
 import numpy as np
-from password = st.text_input("Password", type="password")from PIL import Image
+from PIL import Image
+import cv2
+
+# ---------------- LOGIN ----------------
+def login():
+    st.title("QA App Login")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
     if st.button("Login"):
         if username == "mgimaging" and password == "QA":
             st.session_state["logged_in"] = True
@@ -130,9 +137,3 @@ if st.session_state["logged_in"]:
     main_app()
 else:
     login()
-import cv2
-
-# ---------------- LOGIN ----------------
-def login():
-    st.title("QA App Login")
-    username = st.text_input("Username")
