@@ -5,11 +5,8 @@ import pydicom
 import numpy as np
 from PIL import Image
 import cv2
-# ---------------- LOGIN ----------------
-def login():
-    st.title("QA App Login")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
+
+# ---------------- LOGIN_input("Password", type="password")# ---------------- LOGIN ----------------
     if st.button("Login"):
         if username == "mgimaging" and password == "QA":
             st.session_state["logged_in"] = True
@@ -36,9 +33,11 @@ def ai_score(image_array):
     coverage = np.sum(edges > 0) / edges.size
     collimation_score = min(10, max(0, 10 - (coverage * 5)))  # heuristic
 
-    # Positioning: symmetry check
-    left = gray[:, :gray.shape[1]//2]
-    right = np.fliplr(gray[:, gray.shape[1]//2:])
+    # Positioning: symmetry check (fix for shape mismatch)
+    h, w = gray.shape
+    mid = w // 2
+    left = gray[:, :mid]
+    right = np.fliplr(gray[:, mid:mid + left.shape[1]])  # match width
     symmetry_diff = np.mean(cv2.absdiff(left, right))
     positioning_score = max(0, 10 - symmetry_diff / 10)
 
@@ -135,7 +134,6 @@ if st.session_state["logged_in"]:
 else:
     login()
 
-import os
-import pydicom
-import numpy as np
-
+def login():
+    st.title("QA App Login")
+    username = st.text_input("Username")
