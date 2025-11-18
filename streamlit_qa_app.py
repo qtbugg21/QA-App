@@ -1,10 +1,20 @@
 import streamlit as st
 import pandas as pd
-import os
+import osimport os
+def login():
+    st.title("QA App Login")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    if st.button("Login"):
+        if username == "mgimaging" and password == "QA":
+            st.session_state["logged_in"] = True
+        else:
+            st.error("Invalid credentials")
 import pydicom
 import numpy as np
 from PIL import Image
 import cv2
+
 
 # ---------------- LOGIN_input("Password", type="password")# ---------------- LOGIN ----------------
     if st.button("Login"):
@@ -137,3 +147,4 @@ else:
 def login():
     st.title("QA App Login")
     username = st.text_input("Username")
+
