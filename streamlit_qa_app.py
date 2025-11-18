@@ -1,6 +1,6 @@
 import streamlit as st
-import pandas as pd
-import os
+import PIL import Imageimport pandas as pd
+import cv2
 
 # ---------------- LOGIN ----------------
 def login():
@@ -23,81 +23,105 @@ def detect_body_part(dicom_file):
     except Exception:
         return "Unknown", "Unknown"
 
+# ---------------- AI SCORING ----------------
+def ai_score(image_array):
+    # Convert to grayscale
+    gray = cv2.cvtColor(image_array, cv2.COLOR_BGR2GRAY)
+
+    # Collimation: ratio of anatomy coverage (edges detected)
+    edges = cv2.Canny(gray, 50, 150)
+    coverage = np.sum(edges > 0) / edges.size
+    collimation_score = min(10, max(0, 10 - (coverage * 5)))  # heuristic
+
+    # Positioning: symmetry check
+    left = gray[:, :gray.shape[1]//2]
+    right = np.fliplr(gray[:, gray.shape[1]//2:])
+    symmetry_diff = np.mean(cv2.absdiff(left, right))
+    positioning_score = max(0, 10 - symmetry_diff / 10)
+
+    # Exposure: brightness histogram
+    brightness = np.mean(gray)
+    exposure_score = 10 - abs(brightness - 128) / 12  # ideal ~128 mid-gray
+    exposure_score = max(0, min(10, exposure_score))
+
+    # Artifacts: high variance in small patches
+    variance = np.var(gray)
+    artifacts_score = max(0, 10 - variance / 5000)
+
+    return round(collimation_score, 2), round(positioning_score, 2), round(exposure_score, 2), round(artifacts_score, 2)
+
 # ---------------- MAIN APP ----------------
 def main_app():
-    st.title("X-Ray QA Scoring Tool")
+    st.title("AI-Powered X-Ray QA Scoring Tool")
 
-    # Upload DICOM or image file
     dicom_file = st.file_uploader("Upload Image or DICOM file", type=["dcm", "jpg", "jpeg", "png"])
 
     if dicom_file:
         if dicom_file.name.lower().endswith(".dcm"):
-            # Process DICOM file
             body_part, view = detect_body_part(dicom_file)
             st.success(f"Detected Body Part: {body_part}, View: {view}")
+            ds = pydicom.dcmread(dicom_file)
+            image_array = ds.pixel_array
+            image_array = cv2.convertScaleAbs(image_array)
+            image_array = cv2.cvtColor(image_array, cv2.COLOR_GRAY2BGR)
         else:
-            # Handle non-DICOM image gracefully
             st.warning("Image uploaded (not DICOM). Please select Body Part and View manually below.")
             body_part = st.selectbox("Body Part", ["Chest", "Abdomen", "Extremity", "Spine"])
             view = st.selectbox("View", ["AP", "PA", "Lateral", "Oblique"])
-    else:
-        # No file uploaded yet
-        body_part = st.selectbox("Body Part", ["Chest", "Abdomen", "Extremity", "Spine"])
-        view = st.selectbox("View", ["AP", "PA", "Lateral", "Oblique"])
+            image = Image.open(dicom_file).convert("RGB")
+            image_array = np.array(image)
 
-    # Adjustable weights
-    st.sidebar.header("Adjust Scoring Weights")
-    weights = {
-        "Collimation": st.sidebar.slider("Collimation Weight", 0.0, 1.0, 0.3),
-        "Positioning": st.sidebar.slider("Positioning Weight", 0.0, 1.0, 0.3),
-        "Exposure": st.sidebar.slider("Exposure Weight", 0.0, 1.0, 0.2),
-        "Artifacts": st.sidebar.slider("Artifacts Weight", 0.0, 1.0, 0.2)
-    }
+        # Show preview
+        st.image(image_array, caption="Uploaded Image", use_column_width=True)
 
-    # Numeric scoring
-    st.subheader("Enter Scores (0-10)")
-    collimation = st.number_input("Collimation", 0, 10)
-    positioning = st.number_input("Positioning", 0, 10)
-    exposure = st.number_input("Exposure", 0, 10)
-    artifacts = st.number_input("Artifacts", 0, 10)
+        # AI scoring
+        collimation, positioning, exposure, artifacts = ai_score(image_array)
+        st.subheader("AI-Generated Scores (0-10)")
+        st.write(f"Collimation: {collimation}")
+        st.write(f"Positioning: {positioning}")
+        st.write(f"Exposure: {exposure}")
+        st.write(f"Artifacts: {artifacts}")
 
-    # Calculate weighted score
-    total_score = (collimation * weights["Collimation"] +
-                   positioning * weights["Positioning"] +
-                   exposure * weights["Exposure"] +
-                   artifacts * weights["Artifacts"])
+        # Manual override
+        st.subheader("Adjust Scores if Needed")
+        collimation = st.number_input("Collimation", 0, 10, value=collimation)
+        positioning = st.number_input("Positioning", 0, 10, value=positioning)
+        exposure = st.number_input("Exposure", 0, 10, value=exposure)
+        artifacts = st.number_input("Artifacts", 0, 10, value=artifacts)
 
-    st.write(f"**Total Weighted Score:** {round(total_score, 2)}")
-
-    # Actionable feedback
-    feedback = []
-    if collimation < 8: feedback.append("Improve collimation to reduce unnecessary exposure.")
-    if positioning < 8: feedback.append("Check patient positioning for accuracy.")
-    if exposure < 8: feedback.append("Adjust exposure settings for optimal image quality.")
-    if artifacts < 8: feedback.append("Remove artifacts before imaging.")
-
-    st.write("### Suggested Fixes:")
-    for f in feedback:
-        st.write(f"- {f}")
-
-    # Save to Excel
-    if st.button("Save Result"):
-        data = {
-            "Body Part": body_part,
-            "View": view,
-            "Collimation": collimation,
-            "Positioning": positioning,
-            "Exposure": exposure,
-            "Artifacts": artifacts,
-            "Total Score": round(total_score, 2)
+        # Weighted score
+        st.sidebar.header("Adjust Scoring Weights")
+        weights = {
+            "Collimation": st.sidebar.slider("Collimation Weight", 0.0, 1.0, 0.3),
+            "Positioning": st.sidebar.slider("Positioning Weight", 0.0, 1.0, 0.3),
+            "Exposure": st.sidebar.slider("Exposure Weight", 0.0, 1.0, 0.2),
+            "Artifacts": st.sidebar.slider("Artifacts Weight", 0.0, 1.0, 0.2)
         }
-        df = pd.DataFrame([data])
-        file_name = "qa_results.xlsx"
-        if os.path.exists(file_name):
-            existing = pd.read_excel(file_name)
-            df = pd.concat([existing, df], ignore_index=True)
-        df.to_excel(file_name, index=False)
-        st.success(f"Saved to {file_name}")
+
+        total_score = (collimation * weights["Collimation"] +
+                       positioning * weights["Positioning"] +
+                       exposure * weights["Exposure"] +
+                       artifacts * weights["Artifacts"])
+        st.write(f"**Total Weighted Score:** {round(total_score, 2)}")
+
+        # Save results
+        if st.button("Save Result"):
+            data = {
+                "Body Part": body_part,
+                "View": view,
+                "Collimation": collimation,
+                "Positioning": positioning,
+                "Exposure": exposure,
+                "Artifacts": artifacts,
+                "Total Score": round(total_score, 2)
+            }
+            df = pd.DataFrame([data])
+            file_name = "qa_results.xlsx"
+            if os.path.exists(file_name):
+                existing = pd.read_excel(file_name)
+                df = pd.concat([existing, df], ignore_index=True)
+            df.to_excel(file_name, index=False)
+            st.success(f"Saved to {file_name}")
 
 # ---------------- RUN APP ----------------
 if "logged_in" not in st.session_state:
@@ -107,5 +131,7 @@ if st.session_state["logged_in"]:
     main_app()
 else:
     login()
-import pandas as pd
 
+import os
+import pydicom
+import numpy as np
