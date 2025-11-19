@@ -32,10 +32,10 @@ def ai_score(image_array):
     # Convert to grayscale
     gray = cv2.cvtColor(image_array, cv2.COLOR_BGR2GRAY)
 
-    # Collimation: ratio of anatomy coverage (edges detected)
-    edges = cv2.Canny(gray, 50, 150)
-    coverage = np.sum(edges > 0) / edges.size
-    collimation_score = min(10, max(0, 10 - (coverage * 5)))  # heuristic
+    collimation = st.number_input("Collimation", 0.0, 10.0, value=float(collimation))
+    positioning = st.number_input("Positioning", 0.0, 10.0, value=float(positioning))
+    exposure = st.number_input("Exposure", 0.0, 10.0, value=float(exposure))
+    artifacts = st.number_input("Artifacts", 0.0, 10.0, value=float(artifacts))
 
     # Positioning: symmetry check (fix for shape mismatch)
     h, w = gray.shape
@@ -139,4 +139,5 @@ if st.session_state["logged_in"]:
     main_app()
 else:
     login()
+
 
