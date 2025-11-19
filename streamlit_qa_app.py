@@ -41,7 +41,9 @@ def ai_score(image_array):
     h, w = gray.shape
     mid = w // 2
     left = gray[:, :mid]
-    right = np.fliplr(gray[:, mid:mid + left.shape[1]])  # match width
+    right = np.fliplr(gray[:, mid:])  # flip the right half
+    # Resize right to match left
+    right = cv2.resize(right, (left.shape[1], left.shape[0]))
     symmetry_diff = np.mean(cv2.absdiff(left, right))
     positioning_score = max(0, 10 - symmetry_diff / 10)
 
@@ -137,3 +139,4 @@ if st.session_state["logged_in"]:
     main_app()
 else:
     login()
+
